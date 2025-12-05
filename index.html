@@ -3,37 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsApp Call PWA</title>
-
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#202c33">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-
+    <title>WhatsApp Call</title>
+    
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-
+    
     <style>
-        /* CSS Same as before + Subscription Box */
+        /* CSS Wahi purana wala rahega (No Change) */
         :root { --bg-color: #111b21; --header-color: #202c33; --accent-color: #00a884; --text-primary: #e9edef; --text-secondary: #8696a0; }
         body { background-color: var(--bg-color); color: var(--text-primary); font-family: Helvetica, Arial, sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; user-select: none; }
-
         .header { background-color: var(--header-color); padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-        .header-btn { background: var(--accent-color); color: white; border: none; padding: 5px 10px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px; margin-left: 5px; }
-
-        /* Modals */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; display: none; justify-content: center; align-items: center; }
-        .modal-box { background: var(--header-color); padding: 25px; width: 90%; max-width: 400px; border-radius: 15px; text-align: center; display: flex; flex-direction: column; align-items: center; }
-        textarea { width: 100%; height: 100px; background: #111b21; color: #00a884; border: 1px solid #333; border-radius: 5px; margin: 10px 0; font-size: 10px; padding: 5px; resize: none; }
-
-        /* Other UI components remain same */
         .profile-summary { display: flex; align-items: center; padding: 15px; background: var(--header-color); margin: 10px; border-radius: 10px; border: 1px solid #333; }
         .my-avatar-small { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; margin-right: 15px; background: #555; }
         #recent-list { flex: 1; overflow-y: auto; }
         .call-item { display: flex; align-items: center; padding: 15px; cursor: pointer; border-bottom: 1px solid #202c33; }
         .fab { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background-color: var(--accent-color); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.4); cursor: pointer; z-index: 20; }
         .fab i { color: white; font-size: 28px; }
-
-        /* Video Screens */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; display: none; justify-content: center; align-items: center; }
+        .modal-box { background: var(--header-color); padding: 25px; width: 85%; max-width: 400px; border-radius: 15px; text-align: center; display: flex; flex-direction: column; align-items: center;}
+        input { width: 100%; padding: 12px; background: #2a3942; border: none; color: white; border-radius: 8px; margin: 10px 0; text-align: center; }
+        .modal-btn { padding: 10px 25px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; width: 100px; color: white; font-weight: bold;}
+        .btn-primary { background: var(--accent-color); } .btn-cancel { background: transparent; color: #8696a0; }
         #video-screen, #incoming-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 200; display: none; }
         video { width: 100%; height: 100%; object-fit: cover; }
         #local-video { position: absolute; bottom: 120px; right: 20px; width: 100px; height: 150px; background: #333; border-radius: 10px; border: 2px solid white; transform: scaleX(-1); }
@@ -42,31 +34,13 @@
         .btn-end { background: #f44336; }
         #incoming-screen { background: #0b141a; flex-direction: column; align-items: center; justify-content: center; }
         .avatar-large { width: 120px; height: 120px; border-radius: 50%; margin-bottom: 20px; object-fit: cover; border: 2px solid var(--accent-color); animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-
-        /* Input & Buttons */
-        input { width: 100%; padding: 12px; background: #2a3942; border: none; color: white; border-radius: 8px; margin: 10px 0; text-align: center; }
-        .modal-btn { padding: 10px 25px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; width: 100px; color: white; font-weight: bold;}
-        .btn-primary { background: var(--accent-color); } .btn-cancel { background: transparent; color: #8696a0; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <span>WhatsApp Call</span>
-        <div>
-            <button id="install-btn" class="header-btn" style="display:none;" onclick="installApp()">INSTALL</button>
-            <button class="header-btn" onclick="subscribePush()">🔔 ACTIVATE</button>
-        </div>
-    </div>
-
-    <div id="sub-modal" class="modal-overlay">
-        <div class="modal-box">
-            <h3>Notification Key</h3>
-            <p style="font-size:12px; color:#aaa;">Copy this JSON and use it in a Push Tester to send notification when app is closed.</p>
-            <textarea id="sub-json" readonly onclick="this.select()">Generating...</textarea>
-            <button class="modal-btn btn-primary" onclick="document.getElementById('sub-modal').style.display='none'">Close</button>
-        </div>
+        <i class="material-icons" onclick="initOneSignal()" style="cursor:pointer;">notifications_active</i>
     </div>
 
     <div class="profile-summary" onclick="openProfileModal()">
@@ -83,8 +57,9 @@
     <div id="profile-modal" class="modal-overlay">
         <div class="modal-box">
             <h3>Profile Setup</h3>
-            <img id="preview-avatar" style="width:80px; height:80px; border-radius:50%; object-fit:cover;" src="">
-            <input type="file" id="file-upload" accept="image/*" style="margin:10px;" onchange="handleImageUpload(this)">
+            <img id="preview-avatar" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:10px;" src="">
+            <input type="file" id="file-upload" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+            <label for="file-upload" style="background:#2a3942; padding:5px 10px; border-radius:20px; font-size:12px; margin-bottom:10px;">Choose Photo</label>
             <input type="text" id="input-name" placeholder="Enter Your Name">
             <input type="number" id="input-custom-id" placeholder="Enter Mobile Number">
             <div><button class="modal-btn btn-cancel" onclick="closeProfileModal()">Cancel</button><button class="modal-btn btn-primary" onclick="saveProfile()">Save</button></div>
@@ -94,7 +69,7 @@
     <div id="dial-modal" class="modal-overlay">
         <div class="modal-box">
             <h3>Start Call</h3>
-            <input type="number" id="input-partner-id" placeholder="Partner Mobile No.">
+            <input type="number" id="input-partner-id" placeholder="Enter Mobile No.">
             <div><button class="modal-btn btn-cancel" onclick="closeDialer()">Cancel</button><button class="modal-btn btn-primary" onclick="dialFromInput()">Call</button></div>
         </div>
     </div>
@@ -107,7 +82,6 @@
             <button class="ctrl-btn" style="background: #00a884;" onclick="acceptCall()"><i class="material-icons">videocam</i></button>
         </div>
     </div>
-
     <div id="video-screen">
         <video id="remote-video" autoplay playsinline></video>
         <video id="local-video" autoplay muted playsinline></video>
@@ -115,109 +89,105 @@
     </div>
 
     <script>
-        // ---------------------------------------------------------
-        // 🛑 STEP 1: PASTE YOUR VAPID PUBLIC KEY BELOW
-        // Get it from: https://web-push-codelab.glitch.me/
-        const PUBLIC_VAPID_KEY = 'BOEnXgE5tw5L-pqVwRwgDw3QGdOrtTGh_O6Z8iZBmbc8bCFSTRDG4Q-T1hyoMmOsnZ5uGIr7qYQunov0rLquTQM';
-        // ---------------------------------------------------------
+        // ----------------------------------------------------
+        // 🛑 IMPORTANT: Paste your IDs here
+        // ----------------------------------------------------
+        const ONESIGNAL_APP_ID = "e0197621-0b6f-4850-9d6b-e6a30f658809"; 
+        const REST_API_KEY = "web.onesignal.auto.62a04992-e924-4258-8064-560c4d6dc347"; 
+        // ----------------------------------------------------
 
-        // --- PUSH NOTIFICATION LOGIC ---
-        function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
-            return outputArray;
-        }
-
-        async function subscribePush() {
-            // --- FORCE SERVICE WORKER REGISTRATION ---
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-        .then((registration) => {
-            console.log('✅ Service Worker Registered with scope:', registration.scope);
-
-            // अगर Service Worker "Waiting" स्टेट में फंसा है, तो उसे अपडेट करें
-            if (registration.waiting) {
-                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            }
-        })
-        .catch((error) => {
-            console.error('❌ Service Worker Registration Failed:', error);
-            alert("Error: Service Worker load nahi hua. Console check karein.");
-        });
-} else {
-    alert("Browser Service Worker support nahi karta.");
-}
-            if (!('serviceWorker' in navigator)) return alert("Service Worker not supported");
-            if (PUBLIC_VAPID_KEY === 'YOUR_PUBLIC_VAPID_KEY_HERE') return alert("Error: Please edit index.html and paste your VAPID Public Key first.");
-
-            const register = await navigator.serviceWorker.register('./sw.js');
-            document.getElementById('sub-modal').style.display = 'flex';
-            document.getElementById('sub-json').value = "Requesting permission...";
-
-            try {
-                const subscription = await register.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-                });
-
-                // SHOW THE SUBSCRIPTION JSON
-                document.getElementById('sub-json').value = JSON.stringify(subscription);
-                console.log("Copy this JSON:", JSON.stringify(subscription));
-                alert("Subscription Generated! Copy the JSON from the box.");
-            } catch (err) {
-                document.getElementById('sub-json').value = "Error: " + err.message;
-                console.error(err);
-            }
-        }
-
-        // --- PWA INSTALL ---
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; document.getElementById('install-btn').style.display = 'inline-block'; });
-        function installApp() { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; } }
-
-        // --- APP LOGIC (Previous) ---
         const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
         let myProfile = JSON.parse(localStorage.getItem('wa_profile')) || { name: 'New User', avatar: DEFAULT_AVATAR, id: Math.floor(100000 + Math.random() * 900000).toString() };
+        let tempAvatarData = DEFAULT_AVATAR;
 
-        // Init UI
+        // UI Initialization
         document.getElementById('disp-my-avatar').src = myProfile.avatar;
         document.getElementById('disp-my-name').innerText = myProfile.name;
         document.getElementById('disp-my-id').innerText = myProfile.id;
+        document.getElementById('preview-avatar').src = myProfile.avatar;
 
+        // --- 2. ONESIGNAL INITIALIZATION ---
+        // Ye wo naya code hai jo OneSignal ne diya tha, modified for your app
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(function(OneSignal) {
+            
+            // Initialize
+            OneSignal.init({
+                appId: ONESIGNAL_APP_ID,
+                safari_web_id: "web.onesignal.auto.xxxxx", // Optional
+                notifyButton: { enable: true }, // Ghanti wala icon niche dikhega
+                allowLocalhostAsSecureOrigin: true,
+            });
+
+            // Login automatically if Profile exists
+            if(myProfile.id) {
+                // Hum Mobile Number ko hi User ID bana rahe hain
+                OneSignal.login(myProfile.id);
+                console.log("Logged in to OneSignal with ID:", myProfile.id);
+            }
+        });
+
+        // Function to Trigger Notification via API
+        function sendPushNotification(targetNumber) {
+            const options = {
+                method: 'POST',
+                headers: {
+                    accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    Authorization: 'Basic ' + REST_API_KEY
+                },
+                body: JSON.stringify({
+                    app_id: ONESIGNAL_APP_ID,
+                    include_aliases: { "external_id": [targetNumber] }, // Target Phone Number
+                    target_channel: "push",
+                    headings: { "en": "Incoming Video Call" },
+                    contents: { "en": "Call from " + myProfile.name },
+                    url: window.location.href, // Click karne par app khulega
+                    // Optional: Custom Sound/Badge add kar sakte hain
+                })
+            };
+
+            fetch('https://onesignal.com/api/v1/notifications', options)
+                .then(response => response.json())
+                .then(response => console.log("Push Sent Result:", response))
+                .catch(err => console.error("Push Error:", err));
+        }
+
+        // --- 3. STANDARD LOGIC (Same as before) ---
         const peer = new Peer(myProfile.id, { config: { iceServers: [ { urls: 'stun:stun.l.google.com:19302' } ] } });
         let currentCall = null, localStream = null;
-        let callHistory = JSON.parse(localStorage.getItem('wa_history_v2')) || [];
 
         peer.on('call', (call) => {
             currentCall = call;
             document.getElementById('incoming-screen').style.display = 'flex';
-            document.getElementById('inc-name').innerText = "Incoming Call: " + call.peer;
-            document.getElementById('inc-avatar').src = DEFAULT_AVATAR; // Simplified for now
+            document.getElementById('inc-name').innerText = call.peer;
+            document.getElementById('inc-avatar').src = DEFAULT_AVATAR;
         });
 
-        // Simplified Functions for brevity
-        function openProfileModal() { document.getElementById('profile-modal').style.display = 'flex'; }
-        function closeProfileModal() { document.getElementById('profile-modal').style.display = 'none'; }
-        function openDialer() { document.getElementById('dial-modal').style.display = 'flex'; }
-        function closeDialer() { document.getElementById('dial-modal').style.display = 'none'; }
-
-        function dialFromInput() {
-            const id = document.getElementById('input-partner-id').value;
-            if(id) { closeDialer(); startCall(id); }
+        function dialFromInput() { 
+            const id = document.getElementById('input-partner-id').value; 
+            if(id) { 
+                closeDialer(); 
+                // Notification bhejo
+                sendPushNotification(id);
+                // Call start karo
+                startCall(id); 
+            }
         }
 
-        function startCall(id) {
+        // ... Baki saare functions same hain ...
+        function startCall(partnerID) {
+            if(partnerID === myProfile.id) return alert("Cannot call self.");
             document.getElementById('video-screen').style.display = 'block';
             navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
                 localStream = stream; document.getElementById('local-video').srcObject = stream;
-                const call = peer.call(id, stream); currentCall = call;
+                const call = peer.call(partnerID, stream); 
+                currentCall = call;
                 call.on('stream', (rs) => { document.getElementById('remote-video').srcObject = rs; });
                 call.on('close', endCall);
-            });
+            }).catch(err => alert("Camera blocked"));
         }
+
         function acceptCall() {
             document.getElementById('incoming-screen').style.display = 'none';
             document.getElementById('video-screen').style.display = 'block';
@@ -228,11 +198,37 @@ if ('serviceWorker' in navigator) {
                 currentCall.on('close', endCall);
             });
         }
+        
         function rejectCall() { if(currentCall) currentCall.close(); document.getElementById('incoming-screen').style.display = 'none'; }
         function endCall() { if(currentCall) currentCall.close(); if(localStream) localStream.getTracks().forEach(t=>t.stop()); document.getElementById('video-screen').style.display = 'none'; location.reload(); }
-
-        function handleImageUpload(input) { /* Image resize logic from previous response goes here if needed */ }
-        function saveProfile() { /* Save logic from previous response goes here */ location.reload(); }
+        
+        function openProfileModal() { document.getElementById('profile-modal').style.display = 'flex'; }
+        function closeProfileModal() { document.getElementById('profile-modal').style.display = 'none'; }
+        function openDialer() { document.getElementById('dial-modal').style.display = 'flex'; }
+        function closeDialer() { document.getElementById('dial-modal').style.display = 'none'; }
+        
+        function handleImageUpload(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    tempAvatarData = e.target.result; 
+                    document.getElementById('preview-avatar').src = tempAvatarData;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        
+        function saveProfile() {
+            const newName = document.getElementById('input-name').value;
+            const newId = document.getElementById('input-custom-id').value;
+            if(newName && newId) {
+                myProfile.name = newName; myProfile.id = newId; myProfile.avatar = tempAvatarData;
+                localStorage.setItem('wa_profile', JSON.stringify(myProfile));
+                // Update OneSignal Login
+                OneSignal.login(newId);
+                location.reload();
+            }
+        }
     </script>
 </body>
 </html>
